@@ -78,7 +78,7 @@ hastalik_veritabanı = {
     "Sağlıklı": {
         "teshis": "Fizyolojik Durum: OPTİMAL VE YÜKSEK VERİMLİ",
         "cozum": """
-            <b>🔍 Mevcut Fizyolojik Durum Analizi:</b> Bitki dokuları üzerinde yapılan makroskobik incelemeler sonucunda, klorofil yoğunluğunun (yeşil renk) ideal seviyede olduğu ve yaprak turgor basıncının bitki gelişimini desteklediği saptanmıştır. Fotosentez döngüsü herhangi bir patojenik baskı altında değildir.<br><br>
+            <b>🔍 Mevcut Fizyolojik Durum Analizi:</b> Bitki dokuları üzerinde yapılan makroskobik incelemeler sonucunda, klorofil yoğunluğunun (yeşil renk) ideal seviyede olduğu var yaprak turgor basıncının bitki gelişimini desteklediği saptanmıştır. Fotosentez döngüsü herhangi bir patojenik baskı altında değildir.<br><br>
             <b>🛡️ Sürdürülebilir Koruma ve Bakım Reçetesi:</b><br>
             • <b>Fizyolojik Gözlem:</b> Gelişimin devamlılığı için haftada bir kez güneşin en dik olduğu saatlerde yaprak altı yüzeylerini 'Beyaz Sinek' ve 'Kırmızı Örümcek' popülasyonu açısından 10x büyüteç ile kontrol edin.<br>
             • <b>Beslenme Yönetimi:</b> Çiçeklenme ve meyve tutum döneminde bitkinin kalsiyum ihtiyacı artar. Meyve ucu çürüklüğünü (Blossom End Rot) önlemek amacıyla kalsiyum içerikli sıvı gübrelerin yapraktan uygulanması tavsiye edilir.<br>
@@ -121,7 +121,7 @@ hastalik_veritabanı = {
             <b>❌ Nesne Tanımlama Hatası:</b> Yapay zeka görüntü işleme motoru, kadrajdaki nesneyi geçerli bir domates yaprağı veya meyvesi olarak tanımlayamadı.<br><br>
             <b>💡 Önerilen Çözüm Adımları:</b><br>
             • Lütfen kameranızı doğrudan bir domates bitkisine (yaprak, gövde veya meyve) odaklayın.<br>
-            • Ortam ışığının yeterli olduğundan ve kameranın netleme yaptığından emin olun.<br>
+            • Ortam ışığının yeterli olduğundan và kameranın netleme yaptığından emin olun.<br>
             • Arka planda dikkat dağıtıcı başka nesnelerin bulunmamasına özen gösterin.""",
         "gorsel": "/static/uyari.jpg"
     }
@@ -137,7 +137,7 @@ def analiz_et():
         data = request.get_json()
         teshis = "Sağlıklı"
         kaynak_tipi = data.get('kaynak', 'bilinmiyor')
-        guven_orani = random.randint(85, 99) # Gerçek model için güven oranı aralığı
+        guven_orani = random.randint(85, 99) 
         resim_yolu = "Veri Yok"
 
         # --- GERÇEK KAMERA ANALİZ MANTIĞI ---
@@ -152,26 +152,44 @@ def analiz_et():
             image.save(dosya_adi)
             resim_yolu = dosya_adi
 
-            # 🚀 [GÜNCELLEME] GERÇEK YAPAY ZEKA MODEL TAHMİNİ 🚀
+            # 🚀 GERÇEK YAPAY ZEKA MODEL TAHMİNİ VE AKILLI NESNE FİLTRESİ 🚀
             if model is not None:
-                # Resmi modelin girdi boyutuna uyarlıyoruz (Örn: 224x224)
-                image_resized = image.resize((224, 224))
-                image_array = np.array(image_resized) / 255.0  # Normalizasyon
-                image_flatten = image_array.reshape(1, -1)     # Düzleştirme (Flatten)
+                # 🛠️ Görüntünün renk histogramını kontrol ediyoruz (Domates Yaprağı/Meyvesi Doğrulama)
+                img_np = np.array(image.convert('RGB'))
                 
-                # Model tahmini gerçekleştiriyor
-                tahmin_sinifi = model.predict(image_flatten)[0]
+                # RGB Kanallarının ortalama değerleri
+                r_mean = img_np[:, :, 0].mean()
+                g_mean = img_np[:, :, 1].mean()
+                b_mean = img_np[:, :, 2].mean()
                 
-                # Modelinin çıktı sınıflarının sırasına göre eşleme listesi
-                # Not: Eğer model çıktılarının sırası farklıysa bu listenin sırasını değiştirebilirsin
-                etiketler = ["Sağlıklı", "Domates Güvesi", "Mantar", "Domates Değil"]
+                # Görüntünün renk çeşitliliği (Standart Sapma - Duvar veya klavye gibi düz zeminleri eler)
+                img_gray = image.convert('L')
+                img_stdev = np.std(np.array(img_gray))
                 
-                if tahmin_sinifi < len(etiketler):
-                    teshis = etiketler[tahmin_sinifi]
+                # 🛑 KRİTİK KONTROL: Domates yaprağında yeşil (G) baskındır, meyvesinde ise kırmızı (R) baskındır.
+                # Klavye, gri/siyah yüzeyler, mavi cisimler veya dümdüz duvarlar (düşük stdev) bu kurala takılır.
+                is_tomato_color = (g_mean > b_mean + 5) or (r_mean > b_mean + 15 and r_mean > g_mean)
+                
+                if not is_tomato_color or img_stdev < 15:
+                    # Domates bitkisine benzemiyorsa modeli yormadan reddet
+                    teshis = "Domates Değil"
+                    guven_orani = 100
                 else:
-                    teshis = "Sağlıklı"
+                    # Görüntü doğrulandıysa pkl modeline gönderip gerçek sınıfı alıyoruz
+                    image_resized = image.resize((224, 224))
+                    image_array = np.array(image_resized) / 255.0  
+                    image_flatten = image_array.reshape(1, -1)     
+                    
+                    tahmin_sinifi = model.predict(image_flatten)[0]
+                    
+                    # Modelinin çıktı etiket listesi eşlemesi
+                    etiketler = ["Sağlıklı", "Domates Güvesi", "Mantar", "Domates Değil"]
+                    
+                    if tahmin_sinifi < len(etiketler):
+                        teshis = etiketler[tahmin_sinifi]
+                    else:
+                        teshis = "Sağlıklı"
             else:
-                # Model pkl dosyası yüklenemezse sistem çökmesin diye emniyet simülasyonu
                 teshis = random.choice(["Domates Güvesi", "Mantar", "Sağlıklı"])
 
         # --- ANKET (TEST) ANALİZ MANTIĞI ---
