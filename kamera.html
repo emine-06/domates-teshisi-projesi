@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerçek Zamanlı Domates Teşhisi</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 20px auto; padding: 10px; text-align: center; }
+        #camera-box { position: relative; width: 100%; max-width: 500px; margin: 0 auto; background: #000; border-radius: 12px; overflow: hidden; }
+        video { width: 100%; display: block; transform: scaleX(1); }
+        button { background: #28a745; color: white; border: none; padding: 12px 24px; font-size: 16px; border-radius: 8px; cursor: pointer; margin-top: 15px; width: 100%; max-width: 500px; }
+        button:hover { background: #218838; }
+        #result-panel { margin-top: 25px; padding: 20px; border: 2px solid #ddd; border-radius: 8px; display: none; text-align: left; background: #f9f9f9; }
+        .warning { color: #dc3545; font-weight: bold; }
+        .success { color: #28a745; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <h1>Gerçek Zamanlı Domates Teşhis Sistemi</h1>
+    <p>Kamerayı domatese veya yaprağına doğrultup butona basın.</p>
+    
+    <div id="camera-box">
+        <!-- Canlı kamera akışı burada görünecek -->
+        <video id="webcam" autoplay playsinline></video>
+    </div>
+
+    <button id="capture-btn">Fotoğraf Çek ve Teşhis Et</button>
+
+    <!-- Fotoğrafı arka planda kırpmak/yakalamak için gizli tuval -->
+    <canvas id="snapshot" style="display:none;"></canvas>
+
+    <!-- Sonuç Paneli -->
+    <div id="result-panel">
+        <h3 id="status-title">Durum: Bekleniyor...</h3>
+        <hr>
+        <p><strong>Teşhis:</strong> <span id="disease-name">-</span></p>
+        <p><strong>Açıklama ve Çözüm:</strong> <span id="disease-desc">-</span></p>
+    </div>
+
+    <!-- Kamera mantığını yöneteceğimiz script -->
+    <script src="kamera.js"></script>
+</body>
+</html>
