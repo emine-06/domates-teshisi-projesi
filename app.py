@@ -1,6 +1,6 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for
 import random
-import mysql.connector
+import sqlite3
 import base64
 import io
 import os
@@ -10,8 +10,9 @@ from datetime import datetime
 from PIL import Image
 
 app = Flask(__name__)
+app.secret_key = "domates_gizli_anahtar_123" # Oturum yönetimi için gerekli
 
-# --- 🚀 [YENİ] GERÇEK MODELİN ARKA PLANDA YÜKLENMESİ ---
+# --- 🚀 GERÇEK MODELİN ARKA PLANDA YÜKLENMESİ ---
 try:
     with open('domates_modeli.pkl', 'rb') as f:
         model = pickle.load(f)
@@ -21,64 +22,51 @@ except Exception as e:
     print(f"Model yüklenirken hata oluştu veya dosya bulunamadı: {e}")
 
 
-# --- 1. LARAGON / HEIDISQL VERİ TABANI BAĞLANTI AYARLARI ---
+# --- 1. SQLITE VERİTABANI BAĞLANTI VE TABLO AYARLARI ---
 def db_baglanti_kur():
-    try:
-        # [GÜNCELLEME] Render'daki DB_HOST ortam değişkenini okur, yoksa localhost'a bağlanır
-        db_host = os.environ.get('DB_HOST', 'localhost')
-        
-        # Önce ana sunucuya bağlanıyoruz (Veritabanı seçmeden)
-        conn = mysql.connector.connect(
-            host=db_host,
-            user="root",
-            password=""
-        )
-        cursor = conn.cursor()
-        # Eğer domates_db yoksa otomatik olarak oluştur emri veriyoruz!
-        cursor.execute("CREATE DATABASE IF NOT EXISTS domates_db")
-        cursor.close()
-        conn.close()
+    # Render sunucusunda ve yerelde pürüzsüz çalışan dosya tabanlı gerçek veritabanı
+    conn = sqlite3.connect('domates_yonetim.db')
+    conn.row_factory = sqlite3.Row
+    return conn
 
-        # Şimdi oluşturulan veritabanına bağlanıp geri döndürüyoruz
-        conn = mysql.connector.connect(
-            host=db_host,
-            user="root",
-            password="",
-            database="domates_db"
-        )
-        return conn
-    except mysql.connector.Error as err:
-        print(f"Veri tabanı bağlantı hatası: {err}")
-        return None
-
-# --- 2. VERİ TABANI TABLO KONTROLÜ VE OLUŞTURMA ---
 def tablo_hazirla():
     conn = db_baglanti_kur()
-    if conn:
-        cursor = conn.cursor()
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS teshisler (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                tarih_saat DATETIME,
-                kaynak_tipi VARCHAR(20),
-                teshis_sonucu VARCHAR(100),
-                guven_orani INT,
-                resim_yolu VARCHAR(255)
-            )
-        """)
-        conn.commit()
-        cursor.close()
-        conn.close()
+    cursor = conn.cursor()
+    
+    # Teşhislerin tutulduğu SQL tablosu
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS teshisler (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tarih_saat TEXT,
+            kaynak_tipi TEXT,
+            teshis_sonucu TEXT,
+            guven_orani INTEGER,
+            resim_yolu TEXT,
+            kullanici_mail TEXT
+        )
+    """)
+    
+    # Kullanıcı kayıt ve giriş bilgilerinin tutulduğu SQL tablosu
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS kullanicilar (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tarih_kayit TEXT,
+            email TEXT UNIQUE,
+            sifre TEXT
+        )
+    """)
+    conn.commit()
+    conn.close()
 
 tablo_hazirla()
 
 
-# --- 3. AKADEMİK TEDAVİ VE ANALİZ REHBERİ (MAKSİMUM DETAY) ---
+# --- 2. AKADEMİK TEDAVİ VE ANALİZ REHBERİ ---
 hastalik_veritabanı = {
     "Sağlıklı": {
         "teshis": "Fizyolojik Durum: OPTİMAL VE YÜKSEK VERİMLİ",
         "cozum": """
-            <b>🔍 Mevcut Fizyolojik Durum Analizi:</b> Bitki dokuları üzerinde yapılan makroskobik incelemeler sonucunda, klorofil yoğunluğunun (yeşil renk) ideal seviyede olduğu var yaprak turgor basıncının bitki gelişimini desteklediği saptanmıştır. Fotosentez döngüsü herhangi bir patojenik baskı altında değildir.<br><br>
+            <b>🔍 Mevcut Fizyolojik Durum Analizi:</b> Bitki dokuları üzerinde yapılan makroskobik incelemeler sonucunda, klorofil yoğunluğunun (yeşil renk) ideal seviyede olduğu ve yaprak turgor basıncının bitki gelişimini desteklediği saptanmıştır. Fotosentez döngüsü herhangi bir patojenik baskı altında değildir.<br><br>
             <b>🛡️ Sürdürülebilir Koruma ve Bakım Reçetesi:</b><br>
             • <b>Fizyolojik Gözlem:</b> Gelişimin devamlılığı için haftada bir kez güneşin en dik olduğu saatlerde yaprak altı yüzeylerini 'Beyaz Sinek' ve 'Kırmızı Örümcek' popülasyonu açısından 10x büyüteç ile kontrol edin.<br>
             • <b>Beslenme Yönetimi:</b> Çiçeklenme ve meyve tutum döneminde bitkinin kalsiyum ihtiyacı artar. Meyve ucu çürüklüğünü (Blossom End Rot) önlemek amacıyla kalsiyum içerikli sıvı gübrelerin yapraktan uygulanması tavsiye edilir.<br>
@@ -121,26 +109,101 @@ hastalik_veritabanı = {
             <b>❌ Nesne Tanımlama Hatası:</b> Yapay zeka görüntü işleme motoru, kadrajdaki nesneyi geçerli bir domates yaprağı veya meyvesi olarak tanımlayamadı.<br><br>
             <b>💡 Önerilen Çözüm Adımları:</b><br>
             • Lütfen kameranızı doğrudan bir domates bitkisine (yaprak, gövde veya meyve) odaklayın.<br>
-            • Ortam ışığının yeterli olduğundan và kameranın netleme yaptığından emin olun.<br>
+            • Ortam ışığının yeterli olduğundan ve kameranın netleme yaptığından emin olun.<br>
             • Arka planda dikkat dağıtıcı başka nesnelerin bulunmamasına özen gösterin.""",
         "gorsel": "/static/uyari.jpg"
     }
 }
 
+# --- 3. KULLANICI GİRİŞ / KAYIT YÖNLENDİRMELERİ ---
 @app.route('/')
-def index():
+def ana_sayfa():
+    # Eğer hoca giriş yapmadıysa direkt giriş ekranına şutla
+    if 'kullanici' not in session:
+        return render_template('login.html')
     return render_template('index.html')
 
+@app.route('/kayit-ol', methods=['POST'])
+def kayit_ol():
+    try:
+        data = request.get_json()
+        email = data.get('email')
+        sifre = data.get('sifre')
+        
+        if not email or not sifre:
+            return jsonify({"durum": "hata", "mesaj": "Lütfen tüm alanları doldurun."})
+            
+        conn = db_baglanti_kur()
+        cursor = conn.cursor()
+        
+        # SQL Komutu ile kullanıcıyı veritabanına ekliyoruz
+        cursor.execute("INSERT INTO kullanicilar (tarih_kayit, email, sifre) VALUES (?, ?, ?)", 
+                       (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), email, sifre))
+        conn.commit()
+        conn.close()
+        return jsonify({"durum": "basarili", "mesaj": "Kayıt başarıyla oluşturuldu! Giriş yapabilirsiniz."})
+    except sqlite3.IntegrityError:
+        return jsonify({"durum": "hata", "mesaj": "Bu e-posta adresi zaten kayıtlı!"})
+    except Exception as e:
+        return jsonify({"durum": "hata", "mesaj": f"Hata: {str(e)}"})
+
+@app.route('/giris-yap', methods=['POST'])
+def giris_yap():
+    data = request.get_json()
+    email = data.get('email')
+    sifre = data.get('sifre')
+    
+    conn = db_baglanti_kur()
+    cursor = conn.cursor()
+    # SQL sorgusu ile kullanıcıyı doğruluyoruz
+    cursor.execute("SELECT * FROM kullanicilar WHERE email = ? AND sifre = ?", (email, sifre))
+    user = cursor.fetchone()
+    conn.close()
+    
+    if user:
+        session['kullanici'] = email
+        return jsonify({"durum": "basarili"})
+    return jsonify({"durum": "hata", "mesaj": "E-posta veya şifre hatalı!"})
+
+@app.route('/cikis')
+def cikis():
+    session.pop('kullanici', None)
+    return redirect(url_for('ana_sayfa'))
+
+
+# --- 4. SADECE SENİN GÖREBİLECEĞİN GİZLİ ADMİN PANELİ ---
+@app.route('/admin-panel')
+def admin_panel():
+    # Güvenlik için panel girişinde basit bir doğrulama istersen yapabilirsin.
+    # Şimdilik hoca ve senin veritabanı kayıtlarını şık bir HTML tablosunda listeler.
+    conn = db_baglanti_kur()
+    cursor = conn.cursor()
+    
+    cursor.execute("SELECT * FROM kullanicilar ORDER BY id DESC")
+    kullanici_listesi = cursor.fetchall()
+    
+    cursor.execute("SELECT * FROM teshisler ORDER BY id DESC")
+    teshis_listesi = cursor.fetchall()
+    
+    conn.close()
+    
+    # templates klasöründe oluşturacağımız admin.html dosyasına SQL verilerini gönderiyoruz
+    return render_template('admin.html', kullanicilar=kullanici_listesi, teshisler=teshis_listesi)
+
+
+# --- 5. YAPAY ZEKA VE ANALİZ MOTORU ---
 @app.route('/analiz-et', methods=['POST'])
 def analiz_et():
     try:
+        if 'kullanici' not in session:
+            return jsonify({"hastalik": "Oturum Kapalı", "cozum": "Lütfen önce giriş yapın.", "gorsel": ""})
+
         data = request.get_json()
         teshis = "Sağlıklı"
         kaynak_tipi = data.get('kaynak', 'bilinmiyor')
-        guven_orani = random.randint(85, 99) 
+        guven_orani = random.randint(85, 99)
         resim_yolu = "Veri Yok"
 
-        # --- GERÇEK KAMERA ANALİZ MANTIĞI ---
         if kaynak_tipi == 'kamera' and 'gorsel_data' in data:
             gorsel_base64 = data['gorsel_data'].split(',')[1]
             gorsel_bytes = base64.b64decode(gorsel_base64)
@@ -154,35 +217,26 @@ def analiz_et():
 
             # 🚀 GERÇEK YAPAY ZEKA MODEL TAHMİNİ VE AKILLI NESNE FİLTRESİ 🚀
             if model is not None:
-                # 🛠️ Görüntünün renk histogramını kontrol ediyoruz (Domates Yaprağı/Meyvesi Doğrulama)
                 img_np = np.array(image.convert('RGB'))
-                
-                # RGB Kanallarının ortalama değerleri
                 r_mean = img_np[:, :, 0].mean()
                 g_mean = img_np[:, :, 1].mean()
                 b_mean = img_np[:, :, 2].mean()
                 
-                # Görüntünün renk çeşitliliği (Standart Sapma - Duvar veya klavye gibi düz zeminleri eler)
                 img_gray = image.convert('L')
                 img_stdev = np.std(np.array(img_gray))
                 
-                # 🛑 KRİTİK KONTROL: Domates yaprağında yeşil (G) baskındır, meyvesinde ise kırmızı (R) baskındır.
-                # Klavye, gri/siyah yüzeyler, mavi cisimler veya dümdüz duvarlar (düşük stdev) bu kurala takılır.
+                # Akıllı Filtre: Yeşil veya kırmızı ton yoğunluğu yoksa ya da düz zeminse (Klavye, duvar vb.)
                 is_tomato_color = (g_mean > b_mean + 5) or (r_mean > b_mean + 15 and r_mean > g_mean)
                 
                 if not is_tomato_color or img_stdev < 15:
-                    # Domates bitkisine benzemiyorsa modeli yormadan reddet
                     teshis = "Domates Değil"
                     guven_orani = 100
                 else:
-                    # Görüntü doğrulandıysa pkl modeline gönderip gerçek sınıfı alıyoruz
                     image_resized = image.resize((224, 224))
                     image_array = np.array(image_resized) / 255.0  
                     image_flatten = image_array.reshape(1, -1)     
                     
                     tahmin_sinifi = model.predict(image_flatten)[0]
-                    
-                    # Modelinin çıktı etiket listesi eşlemesi
                     etiketler = ["Sağlıklı", "Domates Güvesi", "Mantar", "Domates Değil"]
                     
                     if tahmin_sinifi < len(etiketler):
@@ -192,7 +246,6 @@ def analiz_et():
             else:
                 teshis = random.choice(["Domates Güvesi", "Mantar", "Sağlıklı"])
 
-        # --- ANKET (TEST) ANALİZ MANTIĞI ---
         elif kaynak_tipi == 'test' and 'puanlar' in data:
             toplam = sum(data['puanlar'].values())
             if toplam >= 22: teshis = "Virüs Enfeksiyonu"
@@ -200,23 +253,19 @@ def analiz_et():
             elif toplam >= 6: teshis = "Domates Güvesi"
             else: teshis = "Sağlıklı"
 
-        # --- 4. SONUÇLARI LARAGON VERİ TABANINA KAYDETME ---
+        # --- 6. SONUÇLARI SQLITE VERİTABANINA KAYDETME ---
         conn = db_baglanti_kur()
-        if conn:
-            cursor = conn.cursor()
-            sql_komutu = """
-                INSERT INTO teshisler (tarih_saat, kaynak_tipi, teshis_sonucu, guven_orani, resim_yolu)
-                VALUES (%s, %s, %s, %s, %s)
-            """
-            degerler = (datetime.now(), kaynak_tipi, teshis, guven_orani, resim_yolu)
-            cursor.execute(sql_komutu, degerler)
-            conn.commit()
-            cursor.close()
-            conn.close()
+        cursor = conn.cursor()
+        sql_komutu = """
+            INSERT INTO teshisler (tarih_saat, kaynak_tipi, teshis_sonucu, guven_orani, resim_yolu, kullanici_mail)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """
+        degerler = (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), kaynak_tipi, teshis, guven_orani, resim_yolu, session['kullanici'])
+        cursor.execute(sql_komutu, degerler)
+        conn.commit()
+        conn.close()
 
-        # Web arayüzüne (Frontend) gönderilecek yanıt
         res = hastalik_veritabanı.get(teshis, hastalik_veritabanı["Sağlıklı"])
-        
         ek_bilgi = f" (Güven Oranı: %{guven_orani})" if teshis != "Domates Değil" else ""
         
         return jsonify({
