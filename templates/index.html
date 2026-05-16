@@ -6,11 +6,13 @@
     <title>Domates Doktoru AI | Klinik Analiz</title>
     <style>
         :root { --primary: #1b5e20; --secondary: #b71c1c; --bg: #f4f7f6; }
-        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--bg); padding: 20px; color: #333; }
-        .container { max-width: 850px; margin: auto; background: white; padding: 40px; border-radius: 30px; box-shadow: 0 15px 40px rgba(0,0,0,0.1); text-align: center; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--bg); padding: 20px; color: #333; margin: 0; }
+        
+        /* Ana Kapsayıcı - Telefonda taşmayı önlemek için max-width ve padding esnetildi */
+        .container { width: 100%; max-width: 850px; margin: auto; background: white; padding: 40px 20px; border-radius: 30px; box-shadow: 0 15px 40px rgba(0,0,0,0.1); text-align: center; box-sizing: border-box; }
         h1 { color: var(--primary); font-size: 2.5rem; margin-bottom: 5px; }
         .subtitle { color: #666; margin-bottom: 30px; display: block; font-style: italic; }
-        .section { background: #fff; border: 1.5px solid #e0e0e0; padding: 30px; border-radius: 20px; margin-bottom: 30px; }
+        .section { background: #fff; border: 1.5px solid #e0e0e0; padding: 30px 15px; border-radius: 20px; margin-bottom: 30px; box-sizing: border-box; }
         
         /* Kamera Alanı */
         #v-frame { width: 100%; max-width: 480px; margin: 0 auto; border-radius: 20px; overflow: hidden; border: 6px solid var(--primary); position: relative; background: #000; }
@@ -19,19 +21,33 @@
         @keyframes scan { 0% { top: 0; } 100% { top: 100%; } }
 
         /* Soru Kartları */
-        .q-card { text-align: left; padding: 25px; margin-bottom: 20px; border-radius: 15px; border-left: 8px solid var(--primary); background: #fcfcfc; border-top: 1px solid #eee; border-right: 1px solid #eee; border-bottom: 1px solid #eee; }
-        .options { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px; }
-        .opt { background: #fff; border: 1px solid #ddd; padding: 15px; border-radius: 10px; cursor: pointer; font-size: 0.95rem; display: flex; align-items: center; gap: 10px; transition: 0.2s; }
+        .q-card { text-align: left; padding: 25px 20px; margin-bottom: 20px; border-radius: 15px; border-left: 8px solid var(--primary); background: #fcfcfc; border-top: 1px solid #eee; border-right: 1px solid #eee; border-bottom: 1px solid #eee; box-sizing: border-box; }
+        
+        /* 🚀 ŞIKLARIN DÜZENİ: Bilgisayarda yan yana 2 sütun */
+        .options { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px; width: 100%; box-sizing: border-box; }
+        
+        /* Şık Butonları - İçerideki yazıların sığması için esneklik sağlandı */
+        .opt { background: #fff; border: 1px solid #ddd; padding: 15px; border-radius: 10px; cursor: pointer; font-size: 0.95rem; display: flex; align-items: center; gap: 10px; transition: 0.2s; box-sizing: border-box; word-break: break-word; }
         .opt:hover { border-color: var(--primary); background: #f1f8e9; }
         
-        .btn { width: 100%; padding: 20px; border: none; border-radius: 15px; cursor: pointer; font-weight: bold; font-size: 1.2rem; transition: 0.3s; margin-top: 10px; }
+        .btn { width: 100%; padding: 20px; border: none; border-radius: 15px; cursor: pointer; font-weight: bold; font-size: 1.2rem; transition: 0.3s; margin-top: 10px; box-sizing: border-box; }
         .btn-cam { background: var(--secondary); color: white; }
         .btn-test { background: var(--primary); color: white; }
         .hidden { display: none; }
 
         /* Sonuç Paneli */
         #res-img { width: 100%; max-width: 550px; border-radius: 25px; margin: 25px 0; border: 10px solid #fff; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
-        #res-cozum { background: #f1f8e9; padding: 35px; border-radius: 20px; text-align: left; border-left: 10px solid var(--primary); line-height: 1.8; font-size: 1.05rem; }
+        #res-cozum { background: #f1f8e9; padding: 35px 20px; border-radius: 20px; text-align: left; border-left: 10px solid var(--primary); line-height: 1.8; font-size: 1.05rem; box-sizing: border-box; }
+
+        /* 📱 TELEFONLAR İÇİN SİHİRLİ MOBİL AYAR (MEDİA QUERY) */
+        @media (max-width: 600px) {
+            h1 { font-size: 1.8rem; }
+            .container { padding: 20px 10px; border-radius: 15px; }
+            /* Telefonda şıkları zorla alt alta tek sütun yapıyoruz */
+            .options { grid-template-columns: 1fr; gap: 10px; }
+            .opt { padding: 12px; font-size: 0.9rem; }
+            .q-card { padding: 15px; border-left-width: 5px; }
+        }
     </style>
 </head>
 <body>
