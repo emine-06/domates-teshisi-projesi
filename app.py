@@ -4,18 +4,32 @@ import mysql.connector
 import base64
 import io
 import os
+import pickle
+import numpy as np
 from datetime import datetime
 from PIL import Image
 
 app = Flask(__name__)
 
-# --- 1. LARAGON / HEIDISQL VERİ TABANI BAĞLANTI AYARLARI ---
+# --- 🚀 [YENİ] GERÇEK MODELİN ARKA PLANDA YÜKLENMESİ ---
+try:
+    with open('domates_modeli.pkl', 'rb') as f:
+        model = pickle.load(f)
+    print("Gerçek yapay zeka modeli başarıyla yüklendi!")
+except Exception as e:
+    model = None
+    print(f"Model yüklenirken hata oluştu veya dosya bulunamadı: {e}")
+
+
 # --- 1. LARAGON / HEIDISQL VERİ TABANI BAĞLANTI AYARLARI ---
 def db_baglanti_kur():
     try:
+        # [GÜNCELLEME] Render'daki DB_HOST ortam değişkenini okur, yoksa localhost'a bağlanır
+        db_host = os.environ.get('DB_HOST', 'localhost')
+        
         # Önce ana sunucuya bağlanıyoruz (Veritabanı seçmeden)
         conn = mysql.connector.connect(
-            host="localhost",
+            host=db_host,
             user="root",
             password=""
         )
@@ -27,7 +41,7 @@ def db_baglanti_kur():
 
         # Şimdi oluşturulan veritabanına bağlanıp geri döndürüyoruz
         conn = mysql.connector.connect(
-            host="localhost",
+            host=db_host,
             user="root",
             password="",
             database="domates_db"
@@ -38,7 +52,6 @@ def db_baglanti_kur():
         return None
 
 # --- 2. VERİ TABANI TABLO KONTROLÜ VE OLUŞTURMA ---
-# Sistem her açıldığında tablonun var olup olmadığını kontrol eder, yoksa otomatik oluşturur.
 def tablo_hazirla():
     conn = db_baglanti_kur()
     if conn:
@@ -85,111 +98,6 @@ hastalik_veritabanı = {
     "Mantar": {
         "teshis": "Patojen Analizi: FUNGAL ENFEKSİYON (Mildiyö / Phytophthora)",
         "cozum": """
-            <b>🔍 Fungus Yayılım Analizi:</b> Yapraklarda düzensiz formda, kenarları sarı haleli kahverengi nekrotik lekeler gözlemlenmiştir. Yüksek nem ve düşük hava sirkülasyonu, mantar sporlarının (zoospor) yaprak gözeneklerinden içeri sızmasına ve iletim demetlerini tıkamasına yol açmıştır.<br><br>
+            <b>🔍 Fungus Yayılım Analizi:</b> Yapralarda düzensiz formda, kenarları sarı haleli kahverengi nekrotik lekeler gözlemlenmiştir. Yüksek nem ve düşük hava sirkülasyonu, mantar sporlarının (zoospor) yaprak gözeneklerinden içeri sızmasına ve iletim demetlerini tıkamasına yol açmıştır.<br><br>
             <b>🛡️ Fungusit Tedavi ve Rehabilitasyon Reçetesi:</b><br>
-            • <b>Kimyasal Müdahale:</b> Hastalığın yayılımını durdurmak amacıyla 'Bakır Hidroksit' veya 'Bakır Oksiklorür' içerikli fungisitler ile 7-10 gün arayla en az iki kür uygulama yapılmalıdır. Yağmur sonrası uygulama tekrarlanmalıdır.<br>
-            • <b>Kültürel Önlemler:</b> Bitkinin alt kısımlarındaki hava akışını kesen, toprağa temas eden yaşlı ve hasta yapraklar steril bir budama makası ile uzaklaştırılmalıdır. Bu işlem, bitki içindeki nem birikimini azaltır.<br>
-            • <b>Çevresel Kontrol:</b> Gece sulamasından kesinlikle kaçınılmalıdır. Toprak yüzeyindeki nemi kontrol altında tutmak için malçlama yapılması veya sulama saatlerinin sabah erkene çekilmesi, sporların çimlenmesini %70 oranında engeller.""",
-        "gorsel": "/static/mantar.jpg"
-    },
-    "Virüs Enfeksiyonu": {
-        "teshis": "Kritik Klinik Durum: VİRAL ENFEKSİYON (Mozaik / TYLCV)",
-        "cozum": """
-            <b>🔍 Viral Patoloji Analizi:</b> Yapraklarda yukarı doğru fincan şeklinde kıvrılma, damarlar arasında sararma (kloroz) ve bitki boyunda belirgin cüceleşme saptanmıştır. Virüs, bitkinin genetik mekanizmasına sızmış durumdadır ve hücre içi çoğalma süreci kontrolsüzdür.<br><br>
-            <b>🛡️ Acil Karantina ve Mücadele Protokolü:</b><br>
-            • <b>Karantina ve İmha:</b> Virüs hastalıklarının kimyasal veya biyolojik bir tedavisi bulunmamaktadır. Virüsün diğer bitkilere yayılmasını engellemek için enfekte bitki köküyle birlikte sökülmeli, plastik bir torbaya konulmalı ve bahçeden en az 50 metre uzakta yakılmalıdır.<br>
-            • <b>Vektör Kontrolü:</b> Virüsün birincil taşıyıcısı olan 'Bemisia tabaci' (Beyaz Sinek) zararlısına karşı acil mücadele başlatılmalıdır. Sarı yapışkan tuzaklar bitki seviyesine asılmalı ve sistemik etkili insektisitler ile taşıyıcı popülasyon sıfırlanmalıdır.<br>
-            • <b>Hijyen Standartları:</b> Hasta bitkiye temas eden eldivenler, ayakkabılar ve budama makasları %10'luk çamaşır suyu çözeltisi ile dezenfekte edilmeden sağlıklı bloklara giriş yapılmamalıdır.""",
-        "gorsel": "/static/kalsiyum.jpg"
-    },
-    "Domates Değil": {
-        "teshis": "⚠️ SİSTEM UYARISI: ANALİZ EDİLEBİLİR NESNE SAPTANAMADI",
-        "cozum": """
-            <b>❌ Nesne Tanımlama Hatası:</b> Yapay zeka görüntü işleme motoru, kadrajdaki nesneyi geçerli bir domates yaprağı veya meyvesi olarak tanımlayamadı.<br><br>
-            <b>💡 Önerilen Çözüm Adımları:</b><br>
-            • Lütfen kameranızı doğrudan bir domates bitkisine (yaprak, gövde veya meyve) odaklayın.<br>
-            • Ortam ışığının yeterli olduğundan ve kameranın netleme yaptığından emin olun.<br>
-            • Arka planda dikkat dağıtıcı başka nesnelerin bulunmamasına özen gösterin.""",
-        "gorsel": "/static/uyari.jpg"
-    }
-}
-
-@app.route('/')
-def index():
-    return render_template('index.html')
-
-@app.route('/analiz-et', methods=['POST'])
-def analiz_et():
-    try:
-        data = request.get_json()
-        teshis = "Sağlıklı"
-        kaynak_tipi = data.get('kaynak', 'bilinmiyor')
-        guven_orani = random.randint(75, 98) # Modelin akademik başarısını gösteren güven skoru (%)
-        resim_yolu = "Veri Yok"
-
-        # --- GERÇEK KAMERA ANALİZ MANTIĞI ---
-        if kaynak_tipi == 'kamera' and 'gorsel_data' in data:
-            # 1. Base64 formatındaki resmi çözüp Python'da işlenebilir hale getiriyoruz
-            gorsel_base64 = data['gorsel_data'].split(',')[1]
-            gorsel_bytes = base64.b64decode(gorsel_base64)
-            image = Image.open(io.BytesIO(gorsel_bytes))
-            
-            # 2. Resmi analiz edilmek üzere sunucuya (uploads klasörüne) kaydediyoruz
-            if not os.path.exists('static/uploads'):
-                os.makedirs('static/uploads')
-            dosya_adi = f"static/uploads/cam_{int(datetime.now().timestamp())}.jpg"
-            image.save(dosya_adi)
-            resim_yolu = dosya_adi
-
-            # 3. DOMATES KONTROLÜ VE HASTALIK TEŞHİS SİMÜLASYONU
-            # (Gerçek modelini bağlarken bu kısmı kendi tahmin fonksiyonuna yönlendirebilirsin)
-            is_tomato = random.choice([True, True, True, False]) # %75 ihtimalle domates, %25 başka nesne uyarısı
-
-            if not is_tomato:
-                teshis = "Domates Değil"
-                guven_orani = 100
-            else:
-                # Domates ise mevcut hastalıklarından birini seçer (Mantar, Güve veya Sağlıklı)
-                teshis = random.choice(["Domates Güvesi", "Mantar", "Sağlıklı"])
-
-        # --- ANKET (TEST) ANALİZ MANTIĞI ---
-        elif kaynak_tipi == 'test' and 'puanlar' in data:
-            toplam = sum(data['puanlar'].values())
-            if toplam >= 22: teshis = "Virüs Enfeksiyonu"
-            elif toplam >= 13: teshis = "Mantar"
-            elif toplam >= 6: teshis = "Domates Güvesi"
-            else: teshis = "Sağlıklı"
-
-        # --- 4. SONUÇLARI LARAGON VERİ TABANINA KAYDETME ---
-        conn = db_baglanti_kur()
-        if conn:
-            cursor = conn.cursor()
-            sql_komutu = """
-                INSERT INTO teshisler (tarih_saat, kaynak_tipi, teshis_sonucu, guven_orani, resim_yolu)
-                VALUES (%s, %s, %s, %s, %s)
-            """
-            degerler = (datetime.now(), kaynak_tipi, teshis, guven_orani, resim_yolu)
-            cursor.execute(sql_komutu, degerler)
-            conn.commit()
-            cursor.close()
-            conn.close()
-
-        # Web arayüzüne (Frontend) gönderilecek yanıt
-        res = hastalik_veritabanı.get(teshis)
-        
-        # Eğer teşhis başarılıysa ve güven oranı varsa başlığa ekleyelim
-        ek_bilgi = f" (Güven Oranı: %{guven_orani})" if teshis != "Domates Değil" else ""
-        
-        return jsonify({
-            "hastalik": res["teshis"] + ek_bilgi, 
-            "cozum": res["cozum"], 
-            "gorsel": res["gorsel"]
-        })
-        
-    except Exception as e:
-        print(f"Hata detayı: {e}")
-        return jsonify({"hastalik": "Hata", "cozum": f"Sistem hatası oluştu: {str(e)}", "gorsel": ""})
-
-if __name__ == '__main__':
-    # Kodun düzgün çalışması için _main_ hatası giderildi ve __main__ yapıldı.
-    app.run(debug=True)
+            • <b>Kimyasal Müdahale:</b> Hast
