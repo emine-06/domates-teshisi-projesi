@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Veritabanı Yönetim Paneli</title>
+    <style>
+        :root { --primary: #1b5e20; --bg: #f4f7f6; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); padding: 20px; color: #333; }
+        .panel-container { max-width: 1000px; margin: auto; background: white; padding: 30px; border-radius: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+        h1 { color: var(--primary); border-bottom: 3px solid var(--primary); padding-bottom: 10px; margin-bottom: 30px; }
+        h2 { color: #444; margin-top: 40px; font-size: 1.4rem; }
+        .table-responsive { overflow-x: auto; margin-top: 15px; border-radius: 12px; border: 1px solid #e0e0e0; }
+        table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.95rem; }
+        th, td { padding: 14px; border-bottom: 1px solid #e0e0e0; }
+        th { background: #f1f8e9; color: var(--primary); font-weight: bold; }
+        tr:hover { background: #f9f9f9; }
+        .badge { padding: 5px 10px; border-radius: 8px; font-size: 0.85rem; font-weight: bold; }
+        .badge-kamera { background: #e3f2fd; color: #0d47a1; }
+        .badge-test { background: #f3e5f5; color: #4a148c; }
+    </style>
+</head>
+<body>
+
+<div class="panel-container">
+    <h1>📊 SQLITE CANLI VERİTABANI KONTROL PANELİ</h1>
+    <p>Bu panel, sistemdeki veritabanı tablolarından (<b>kullanicilar</b> ve <b>teshisler</b>) SQL sorguları ile anlık veri çekmektedir.</p>
+
+    <h2>👥 Kayıtlı Kullanıcı Hesapları Tablosu (kullanicilar)</h2>
+    <div class="table-responsive">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Kayıt Tarihi</th>
+                    <th>Kullanıcı E-Posta (Veritabanı Anahtarı)</th>
+                    <th>Şifre (Hash/Düz)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in kullanicilar %}
+                <tr>
+                    <td><b>{{ user.id }}</b></td>
+                    <td>{{ user.tarih_kayit }}</td>
+                    <td>{{ user.email }}</td>
+                    <td><code>{{ user.sifre }}</code></td>
+                </tr>
+                {% else %}
+                <tr><td colspan="4" style="text-align:center; color:#999;">Henüz kayıtlı kullanıcı yok.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <h2>📋 Sistem Teşhis Geçmişi Tablosu (teshisler)</h2>
+    <div class="table-responsive">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Tarih / Saat</th>
+                    <th>Kullanıcı</th>
+                    <th>Kaynak</th>
+                    <th>Teşhis Sonucu</th>
+                    <th>Model Güven Oranı</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for teshis in teshisler %}
+                <tr>
+                    <td><b>{{ teshis.id }}</b></td>
+                    <td>{{ teshis.tarih_saat }}</td>
+                    <td>{{ teshis.kullanici_mail }}</td>
+                    <td>
+                        <span class="badge {% if teshis.kaynak_tipi == 'kamera' %}badge-kamera{% else %}badge-test{% endif %}">
+                            {{ teshis.kaynak_tipi.upper() }}
+                        </span>
+                    </td>
+                    <td><b>{{ teshis.teshis_sonucu }}</b></td>
+                    <td>%{{ teshis.guven_orani }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" style="text-align:center; color:#999;">Henüz yapılmış bir teşhis kaydı bulunamadı.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+</body>
+</html>
