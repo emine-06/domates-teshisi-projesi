@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sisteme Giriş Yap</title>
+    <style>
+        :root { --primary: #1b5e20; --bg: #f4f7f6; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; padding: 15px; box-sizing: border-box; }
+        .login-card { background: white; padding: 35px 25px; border-radius: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); width: 100%; max-width: 400px; text-align: center; box-sizing: border-box; }
+        h2 { color: var(--primary); margin-bottom: 5px; font-size: 1.8rem; }
+        p { color: #666; margin-bottom: 25px; font-size: 0.9rem; }
+        input { width: 100%; padding: 15px; margin: 8px 0; border: 1.5px solid #e0e0e0; border-radius: 12px; box-sizing: border-box; font-size: 1rem; outline: none; transition: 0.3s; }
+        input:focus { border-color: var(--primary); }
+        button { width: 100%; padding: 15px; border: none; border-radius: 12px; font-weight: bold; font-size: 1rem; cursor: pointer; margin-top: 15px; transition: 0.3s; }
+        .btn-login { background: var(--primary); color: white; }
+        .btn-register { background: #eee; color: #333; margin-top: 8px; }
+        .msg { margin-top: 15px; font-size: 0.9rem; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="login-card">
+    <h2>Domates Patoloji Analizi</h2>
+    <p>Devam etmek için giriş yapın veya kayıt olun</p>
+    
+    <input type="email" id="email" placeholder="E-posta Adresiniz (Örn: hoca@mail.com)">
+    <input type="password" id="sifre" placeholder="Şifreniz">
+    
+    <button class="btn-login" onclick="islem('giris-yap')">Giriş Yap</button>
+    <button class="btn-register" onclick="islem('kayit-ol')">Yeni Hesap Oluştur</button>
+    
+    <div id="mesaj" class="msg"></div>
+</div>
+
+<script>
+function islem(rota) {
+    const email = document.getElementById('email').value;
+    const sifre = document.getElementById('sifre').value;
+    const mesajDiv = document.getElementById('mesaj');
+    
+    if(!email || !sifre) {
+        mesajDiv.style.color = 'red';
+        mesajDiv.innerText = 'Lütfen tüm alanları doldurun.';
+        return;
+    }
+    
+    fetch('/' + rota, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({email: email, sifre: sifre})
+    })
+    .then(res => res.json())
+    .then(data => {
+        if(data.durum === 'basarili' || !data.durum) {
+            if(rota === 'giris-yap') {
+                window.location.href = '/';
+            } else {
+                mesajDiv.style.color = 'green';
+                mesajDiv.innerText = data.mesaj;
+            }
+        } else {
+            mesajDiv.style.color = 'red';
+            mesajDiv.innerText = data.mesaj;
+        }
+    }).catch(err => {
+        mesajDiv.style.color = 'red';
+        mesajDiv.innerText = 'Bir hata oluştu.';
+    });
+}
+</script>
+</body>
+</html>
